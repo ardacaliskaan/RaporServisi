@@ -47,7 +47,7 @@ public class ReportSyncService : BackgroundService
                             {
                                 Id = Guid.NewGuid(),
                                 Tckn = r.Tckn,
-                                SicilNo = "", // isterseniz personel tablosundan eşleyin
+                                SicilNo = "", 
                                 StartDate = r.PoliklinikTarihi ?? d,
                                 EndDate = r.PoliklinikTarihi ?? d,
                                 DiagnosisCode = r.VakaKodu?.ToString() ?? "",

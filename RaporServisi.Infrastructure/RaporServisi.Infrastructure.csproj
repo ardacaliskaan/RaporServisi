@@ -1,11 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
@@ -16,10 +15,13 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\RaporServisi.Application\RaporServisi.Application.csproj" />
     <ProjectReference Include="..\RaporServisi.Domain\RaporServisi.Domain.csproj" />
   </ItemGroup>
-
+  <ItemGroup>
+    <PackageReference Include="System.ServiceModel.Http" Version="8.*" />
+    <PackageReference Include="System.ServiceModel.NetTcp" Version="8.*" />
+    <PackageReference Include="System.ServiceModel.Primitives" Version="8.*" />
+  </ItemGroup>
 </Project>

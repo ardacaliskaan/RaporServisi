@@ -1,39 +1,78 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using RaporServisi.Infrastructure.External;
+using SgkVizite;
 
 namespace RaporServisi.Api.Controllers;
 
 public record SgkReportQueryDto(string KullaniciAdi, string IsyeriKodu, string WsSifre, string Tarih);
-public record SgkReportListItem(long MedulaRaporId, string Tckn, string? PoliklinikTarihi, int? VakaKodu, string? VakaAdi);
+public record SgkReportListItem(string? TcKimlikNo, string? MedulaRaporId, string? RaporDurumu,
+                                string? Vaka, string? VakaAdi, string? PoliklinikTarihi,
+                                string? RaporBitTar, string? TesisAdi);
 
 [ApiController]
 [Route("api/v1/sgk/reports")]
 public class SgkReportsController : ControllerBase
 {
-    private readonly SgkViziteDirectClient _client;
-    public SgkReportsController(SgkViziteDirectClient client) => _client = client;
-
-    [HttpPost] 
-    public async Task<IActionResult> List([FromBody] SgkReportQueryDto dto, CancellationToken ct)
+    [HttpPost]
+    public async Task<IActionResult> List([FromBody] SgkReportQueryDto dto)
     {
+        if (!DateTime.TryParse(dto.Tarih, out var dt))
+            return BadRequest("Tarih formatı geçersiz (örn: 28.08.2025 veya 2025-08-28).");
 
-        if (!DateTime.TryParse(dto.Tarih, out var date) &&
-            !DateTime.TryParseExact(dto.Tarih, "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out date))
+        // 1) Client
+        var client = new ViziteGonderClient(ViziteGonderClient.EndpointConfiguration.ViziteGonder);
+
+        // 2) Login – iki YÖNTEMDEN birini kullan:
+        // A) 3 string overload (en kolayı)
+        var loginResp = await client.wsLoginAsync(dto.KullaniciAdi, dto.IsyeriKodu, dto.WsSifre); // :contentReference[oaicite:0]{index=0}
+
+        // B) (Alternatif) Request nesnesiyle
+        // var loginResp = await client.wsLoginAsync(new wsLoginRequest {
+        //     kullaniciAdi = dto.KullaniciAdi,
+        //     isyeriKodu   = dto.IsyeriKodu,
+        //     isyeriSifresi= dto.WsSifre
+        // });
+
+        var token = loginResp.wsLoginReturn?.wsToken;
+        if (string.IsNullOrWhiteSpace(token))
+            return StatusCode(502, "WS Login başarısız: token alınamadı.");
+
+        // 3) Raporları tarihle ara (request nesnesi imzasına göre)
+        var raporResp = await client.raporAramaTarihileAsync(
+            dto.KullaniciAdi,
+            dto.IsyeriKodu,
+            token!,
+            dt.ToString("dd.MM.yyyy")
+        );
+
+
+
+        var cevap = raporResp.raporAramaTarihileReturn; // CevapRapor
+        var items = new List<SgkReportListItem>();
+
+        // TarihSorguBean[]
+        if (cevap?.tarihSorguBean != null)
         {
-            return BadRequest("Tarih formatı 'yyyy-MM-dd' veya 'dd.MM.yyyy' olmalı.");
+            foreach (var r in cevap.tarihSorguBean)
+            {
+                items.Add(new SgkReportListItem(
+                    r?.TCKIMLIKNO, r?.MEDULARAPORID, r?.RAPORDURUMU ?? r?.RAPORDURUMADI,
+                    r?.VAKA, r?.VAKAADI, r?.POLIKLINIKTAR, r?.RAPORBITTAR, r?.TESISADI
+                ));
+            }
         }
 
-        var cred = new ViziteLogin(dto.KullaniciAdi, dto.IsyeriKodu, dto.WsSifre);
-        var items = await _client.GetReportsByDateAsync(cred, date, ct);
+        // RaporBean[]
+        if (cevap?.raporBeanArray != null)
+        {
+            foreach (var r in cevap.raporBeanArray)
+            {
+                items.Add(new SgkReportListItem(
+                    r?.TCKIMLIKNO, r?.MEDULARAPORID, r?.RAPORDURUMU,
+                    r?.VAKA, r?.VAKAADI, r?.POLIKLINIKTAR, r?.RAPORBITTAR, r?.TESISADI
+                ));
+            }
+        }
 
-        var result = items.Select(x => new SgkReportListItem(
-            x.MedulaRaporId,
-            x.Tckn,
-            x.PoliklinikTarihi?.ToString("yyyy-MM-dd"),
-            x.VakaKodu,
-            x.VakaAdi
-        ));
-
-        return Ok(result);
+        return Ok(new { count = items.Count, date = dt.ToString("yyyy-MM-dd"), items });
     }
 }

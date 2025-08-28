@@ -43,8 +43,7 @@ public class SgkViziteClient : ISgkViziteClient
 
         var req = new StringContent(body);
         req.Headers.ContentType = new MediaTypeHeaderValue("text/xml");
-        // SOAPAction bazı ortamlarda zorunlu değil; gerekiyorsa şunu ekleyin:
-        // req.Headers.Add("SOAPAction", "wsLogin");
+
 
         var resp = await _http.PostAsync(_opt.Endpoint, req, ct);
         resp.EnsureSuccessStatusCode();

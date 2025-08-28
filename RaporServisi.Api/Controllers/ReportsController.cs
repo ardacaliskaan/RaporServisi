@@ -37,7 +37,6 @@ public class ReportsController : ControllerBase
         return Ok(list);
     }
 
-    // Hýzlý test için rapor ekleme (seed)
     [HttpPost]
     public async Task<IActionResult> Seed([FromBody] SickReport model)
     {

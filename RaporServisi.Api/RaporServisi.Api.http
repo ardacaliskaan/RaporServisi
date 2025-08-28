@@ -1,0 +1,6 @@
+@RaporServisi.Api_HostAddress = http://localhost:5090
+
+GET {{RaporServisi.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

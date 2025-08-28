@@ -18,33 +18,21 @@ public class SgkReportsController : ControllerBase
         if (!DateTime.TryParse(dto.Tarih, out var dt))
             return BadRequest("Tarih formatı geçersiz (örn: 28.08.2025 veya 2025-08-28).");
 
-        // 1) Client
         var client = new ViziteGonderClient(ViziteGonderClient.EndpointConfiguration.ViziteGonder);
 
-        // 2) Login – iki YÖNTEMDEN birini kullan:
-        // A) 3 string overload (en kolayı)
-        var loginResp = await client.wsLoginAsync(dto.KullaniciAdi, dto.IsyeriKodu, dto.WsSifre); // :contentReference[oaicite:0]{index=0}
-
-        // B) (Alternatif) Request nesnesiyle
-        // var loginResp = await client.wsLoginAsync(new wsLoginRequest {
-        //     kullaniciAdi = dto.KullaniciAdi,
-        //     isyeriKodu   = dto.IsyeriKodu,
-        //     isyeriSifresi= dto.WsSifre
-        // });
-
+        // 1) Login — 3 string overload (POZİSYONLA)
+        var loginResp = await client.wsLoginAsync(dto.KullaniciAdi, dto.IsyeriKodu, dto.WsSifre);
         var token = loginResp.wsLoginReturn?.wsToken;
         if (string.IsNullOrWhiteSpace(token))
             return StatusCode(502, "WS Login başarısız: token alınamadı.");
 
-        // 3) Raporları tarihle ara (request nesnesi imzasına göre)
+        // 2) Rapor arama — 4 string overload (POZİSYONLA)
         var raporResp = await client.raporAramaTarihileAsync(
             dto.KullaniciAdi,
             dto.IsyeriKodu,
             token!,
             dt.ToString("dd.MM.yyyy")
         );
-
-
 
         var cevap = raporResp.raporAramaTarihileReturn; // CevapRapor
         var items = new List<SgkReportListItem>();

@@ -4,6 +4,8 @@ using RaporServisi.Application.Contracts;
 using RaporServisi.Infrastructure.External;
 using RaporServisi.Infrastructure.Services;
 
+System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // EF Core - SQL Server

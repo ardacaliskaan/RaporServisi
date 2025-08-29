@@ -1,118 +1,203 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SgkVizite;
+using System;
 using System.ServiceModel;
-using System.ServiceModel.Channels;
-namespace RaporServisi.Api.Controllers;
+using System.Threading.Tasks;
+using SgkVizite;
+using System.Collections.Generic;
 
-public record SgkReportQueryDto(string KullaniciAdi, string IsyeriKodu, string WsSifre, string Tarih);
-public record SgkReportListItem(
-    string? TcKimlikNo, string? MedulaRaporId, string? RaporDurumu,
-    string? Vaka, string? VakaAdi, string? PoliklinikTarihi,
-    string? RaporBitTar, string? TesisAdi);
-
-[ApiController]
-[Route("api/v1/sgk/reports")]
-public class SgkReportsController : ControllerBase
+namespace RaporServisi.Api.Controllers
 {
-    [HttpPost]
-    public async Task<IActionResult> List([FromBody] SgkReportQueryDto dto)
+    [ApiController]
+    [Route("api/v1/sgk/reports")]
+    public class SgkReportsController : ControllerBase
     {
-        if (!DateTime.TryParse(dto.Tarih, out var dt))
-            return BadRequest("Tarih formatı geçersiz (örn: 28.08.2025 veya 2025-08-28).");
-
-        // Client
-        var binding = new BasicHttpBinding(BasicHttpSecurityMode.None)
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest dto)
         {
-            MaxReceivedMessageSize = 10 * 1024 * 1024,
-            OpenTimeout = TimeSpan.FromSeconds(60),
-            SendTimeout = TimeSpan.FromSeconds(60),
-            ReceiveTimeout = TimeSpan.FromSeconds(60)
-        };
+            var binding = new BasicHttpBinding(BasicHttpSecurityMode.Transport)
+            {
+                MaxReceivedMessageSize = 10 * 1024 * 1024,
+                OpenTimeout = TimeSpan.FromSeconds(60),
+                SendTimeout = TimeSpan.FromSeconds(60),
+                ReceiveTimeout = TimeSpan.FromSeconds(60)
+            };
 
-        // WSDL’deki adres (HTTP/9094)
-        var endpoint = new EndpointAddress("http://uyg.sgk.gov.tr:9094/Ws_Vizite/services/ViziteGonder");
+            var endpoint = new EndpointAddress("https://uyg.sgk.gov.tr/Ws_Vizite/services/ViziteGonder");
+            var client = new ViziteGonderClient(binding, endpoint);
 
-        // Generated client bu ctor’u destekler
-        var client = new ViziteGonderClient(binding, endpoint);
+            var loginResp = await client.wsLoginAsync(dto.KullaniciAdi, dto.IsyeriKodu, dto.WsSifre);
+            var result = loginResp?.wsLoginReturn;
 
-        // Login
-        var loginResp = await client.wsLoginAsync(
-            dto.KullaniciAdi,   // kullaniciAdi 
-            dto.IsyeriKodu,     // isyeriKodu    
-            dto.WsSifre         // isyeriSifresi 
-        );
-        var token = loginResp.wsLoginReturn?.wsToken;
+            if (result == null || result.sonucKod != 0 || string.IsNullOrWhiteSpace(result.wsToken))
+            {
+                return StatusCode(502, new
+                {
+                    success = false,
+                    sonucKod = result?.sonucKod ?? -1,
+                    sonucAciklama = result?.sonucAciklama ?? "Bilinmeyen hata"
+                });
+            }
 
-        var loginKod = loginResp?.wsLoginReturn?.sonucKod ?? -1;
-        if (string.IsNullOrWhiteSpace(token) || loginKod != 0)
-            return StatusCode(502, $"WS Login başarısız: kod={loginKod}, açıklama='{loginResp?.wsLoginReturn?.sonucAciklama}'.");
-
-        // 2) Raporları tarihle ara
-        var tarihleResp = await client.raporAramaTarihileAsync(
-            dto.KullaniciAdi,
-            dto.IsyeriKodu,
-            token!,
-            dt.ToString("dd.MM.yyyy")
-        );                                                                                        
-
-        var cevap = tarihleResp?.raporAramaTarihileReturn; // tip CevapRapor
-        var items = new List<SgkReportListItem>();
-
-        // Hata kodu kontrolü
-        var kod = cevap?.sonucKod ?? -1;
-        if (kod != 0)
-        {
             return Ok(new
             {
-                success = false,
-                sonucKod = kod,
-                sonucAciklama = cevap?.sonucAciklama,
-                date = dt.ToString("yyyy-MM-dd"),
-                items
+                success = true,
+                sonucKod = result.sonucKod,
+                sonucAciklama = result.sonucAciklama,
+                wsToken = result.wsToken
             });
         }
 
-        // CevapRapor içindeki iki olası koleksiyondan okumalar
-        if (cevap?.tarihSorguBean != null) // TarihSorguBean[]                                      
+        [HttpPost("search-by-date")]
+        public async Task<IActionResult> SearchByDate([FromBody] ReportSearchRequest dto)
         {
-            foreach (var r in cevap.tarihSorguBean)
+            if (!DateTime.TryParse(dto.Tarih, out var date))
+                return BadRequest("Tarih formatı geçersiz. Format: dd.MM.yyyy");
+
+            var binding = new BasicHttpBinding(BasicHttpSecurityMode.Transport)
             {
-                items.Add(new SgkReportListItem(
-                    TcKimlikNo: r?.TCKIMLIKNO,
-                    MedulaRaporId: r?.MEDULARAPORID,
-                    RaporDurumu: r?.RAPORDURUMU ?? r?.RAPORDURUMADI,
-                    Vaka: r?.VAKA,
-                    VakaAdi: r?.VAKAADI,
-                    PoliklinikTarihi: r?.POLIKLINIKTAR,
-                    RaporBitTar: r?.RAPORBITTAR,
-                    TesisAdi: r?.TESISADI
-                ));
+                MaxReceivedMessageSize = 10 * 1024 * 1024,
+                OpenTimeout = TimeSpan.FromSeconds(60),
+                SendTimeout = TimeSpan.FromSeconds(60),
+                ReceiveTimeout = TimeSpan.FromSeconds(60)
+            };
+
+            var endpoint = new EndpointAddress("https://uyg.sgk.gov.tr/Ws_Vizite/services/ViziteGonder");
+            var client = new ViziteGonderClient(binding, endpoint);
+
+            var resp = await client.raporAramaTarihileAsync(
+                dto.KullaniciAdi,
+                dto.IsyeriKodu,
+                dto.WsToken,
+                date.ToString("dd.MM.yyyy")
+            );
+
+            var result = resp?.raporAramaTarihileReturn;
+
+            if (result == null || result.sonucKod != 0)
+            {
+                return Ok(new
+                {
+                    success = false,
+                    sonucKod = result?.sonucKod ?? -1,
+                    sonucAciklama = result?.sonucAciklama ?? "Bilinmeyen hata"
+                });
             }
+
+            var items = new List<object>();
+
+            if (result.raporAramaTarihleBeanArray != null)
+            {
+                foreach (var r in result.raporAramaTarihleBeanArray)
+                {
+                    items.Add(new
+                    {
+                        TcKimlikNo = r?.TCKIMLIKNO,
+                        Ad = r?.AD?.Trim(),
+                        Soyad = r?.SOYAD?.Trim(),
+                        MedulaRaporId = r?.MEDULARAPORID,
+                        RaporTakipNo = r?.RAPORTAKIPNO,
+                        PoliklinikTarihi = r?.POLIKLINIKTAR,
+                        RaporDurumu = r?.RAPORDURUMU,
+                        Vaka = r?.VAKA,
+                        VakaAdi = r?.VAKAADI,
+                        TesisAdi = r?.TESISADI
+                    });
+                }
+            }
+
+            return Ok(new
+            {
+                success = true,
+                sonucKod = result.sonucKod,
+                sonucAciklama = result.sonucAciklama,
+                date = date.ToString("yyyy-MM-dd"),
+                raporlar = items
+            });
         }
 
-        if (cevap?.raporBeanArray != null) // RaporBean[]                                          
+        [HttpPost("search-by-tc")]
+        public async Task<IActionResult> SearchByTc([FromBody] ReportSearchByTcRequest dto)
         {
-            foreach (var r in cevap.raporBeanArray)
+            var binding = new BasicHttpBinding(BasicHttpSecurityMode.Transport)
             {
-                items.Add(new SgkReportListItem(
-                    TcKimlikNo: r?.TCKIMLIKNO,
-                    MedulaRaporId: r?.MEDULARAPORID,
-                    RaporDurumu: r?.RAPORDURUMU,
-                    Vaka: r?.VAKA,
-                    VakaAdi: r?.VAKAADI,
-                    PoliklinikTarihi: r?.POLIKLINIKTAR,
-                    RaporBitTar: r?.RAPORBITTAR,
-                    TesisAdi: r?.TESISADI
-                ));
-            }
-        }
+                MaxReceivedMessageSize = 10 * 1024 * 1024,
+                OpenTimeout = TimeSpan.FromSeconds(60),
+                SendTimeout = TimeSpan.FromSeconds(60),
+                ReceiveTimeout = TimeSpan.FromSeconds(60)
+            };
 
-        return Ok(new
-        {
-            success = true,
-            count = items.Count,
-            date = dt.ToString("yyyy-MM-dd"),
-            items
-        });
+            var endpoint = new EndpointAddress("https://uyg.sgk.gov.tr/Ws_Vizite/services/ViziteGonder");
+            var client = new ViziteGonderClient(binding, endpoint);
+
+            var resp = await client.raporAramaKimlikNoAsync(
+                dto.KullaniciAdi,
+                dto.IsyeriKodu,
+                dto.WsToken,
+                dto.TcKimlikNo
+            );
+
+            var result = resp?.raporAramaKimlikNoReturn;
+
+            if (result == null || result.sonucKod != 0)
+            {
+                return Ok(new
+                {
+                    success = false,
+                    sonucKod = result?.sonucKod ?? -1,
+                    sonucAciklama = result?.sonucAciklama ?? "Bilinmeyen hata"
+                });
+            }
+
+            var items = new List<object>();
+
+            if (result.raporBeanArray != null)
+            {
+                foreach (var r in result.raporBeanArray)
+                {
+                    items.Add(new
+                    {
+                        TcKimlikNo = r?.TCKIMLIKNO,
+                        MedulaRaporId = r?.MEDULARAPORID,
+                        RaporDurumu = r?.RAPORDURUMU,
+                        Vaka = r?.VAKA,
+                        VakaAdi = r?.VAKAADI,
+                        PoliklinikTarihi = r?.POLIKLINIKTAR,
+                        RaporBitTar = r?.RAPORBITTAR,
+                        TesisAdi = r?.TESISADI
+                    });
+                }
+            }
+
+            return Ok(new
+            {
+                success = true,
+                sonucKod = result.sonucKod,
+                sonucAciklama = result.sonucAciklama,
+                raporlar = items
+            });
+        }
+    }
+
+    public class LoginRequest
+    {
+        public string KullaniciAdi { get; set; } = "";
+        public string IsyeriKodu { get; set; } = "";
+        public string WsSifre { get; set; } = "";
+    }
+
+    public class ReportSearchRequest
+    {
+        public string KullaniciAdi { get; set; } = "";
+        public string IsyeriKodu { get; set; } = "";
+        public string WsToken { get; set; } = "";
+        public string Tarih { get; set; } = "";
+    }
+
+    public class ReportSearchByTcRequest
+    {
+        public string KullaniciAdi { get; set; } = "";
+        public string IsyeriKodu { get; set; } = "";
+        public string WsToken { get; set; } = "";
+        public string TcKimlikNo { get; set; } = "";
     }
 }

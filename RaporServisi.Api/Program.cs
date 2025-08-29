@@ -1,33 +1,38 @@
 using Microsoft.EntityFrameworkCore;
 using RaporServisi.Infrastructure.Persistence;
-using RaporServisi.Application.Contracts;
-using RaporServisi.Infrastructure.External;
-using RaporServisi.Infrastructure.Services;
-
-System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// EF Core - SQL Server
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-builder.Services.Configure<SgkViziteOptions>(builder.Configuration.GetSection("SgkVizite"));
-
-// MVC Controllers + Swagger
+// --- Services ---
+// Controllers
 builder.Services.AddControllers();
+
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHttpClient<ISgkViziteClient, SgkViziteClient>();
-builder.Services.AddHostedService<ReportSyncService>();
 
-builder.Services.AddHttpClient<SgkViziteDirectClient>();
+// DbContext (Connection string appsettings.json’dan okunur)
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// --- Middleware ---
+// Swagger sadece Dev’de deðil her ortamda açýk kalsýn istersen aþaðýdaki if’i kaldýrabilirsin
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
+// HTTPS redirect (zorunlu deðil ama güvenlik için iyi)
+app.UseHttpsRedirection();
+
+// Authorization (eklersen burada aktif olur)
+app.UseAuthorization();
+
+// Controller route’larý
 app.MapControllers();
 
 app.Run();

@@ -19,4 +19,8 @@
     <ProjectReference Include="..\RaporServisi.Domain\RaporServisi.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Contracts\" />
+  </ItemGroup>
+
 </Project>

@@ -5,9 +5,6 @@ public static class DateHelper
     // SGK tarih formatı
     private const string SgkDateFormat = "dd.MM.yyyy";
 
-    /// <summary>
-    /// Notlardaki kural: "OnaylıRaporlarTarihile - girilen tarih - 5 yıl yapılacak"
-    /// </summary>
     public static (string startDate, string endDate) CalculateApprovedReportsDateRange(string inputDate)
     {
         if (!DateTime.TryParseExact(inputDate, SgkDateFormat, null,
@@ -21,7 +18,6 @@ public static class DateHelper
     }
 
     /// <summary>
-    /// Notlardaki kurallar:
     /// - Başlangıç tarihi yoksa → bitiş tarihi - 5 yıl
     /// - Bitiş tarihi yoksa → bugün - 5 yıl başlangıç tarihi
     /// </summary>

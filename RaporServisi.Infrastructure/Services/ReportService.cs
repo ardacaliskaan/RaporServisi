@@ -631,11 +631,9 @@ public class ReportService : IReportService
         };
     }
 
-    // Diğer metodların implementasyonları...
     public async Task<ApiResponseDto<ComprehensiveReportResponseDto>> GetComprehensiveReportsAsync(
         ReportSearchRequestDto request, bool includeApprovedReports = true, CancellationToken ct = default)
     {
-        // Implementation placeholder
         throw new NotImplementedException("Comprehensive reports will be implemented in next iteration");
     }
 

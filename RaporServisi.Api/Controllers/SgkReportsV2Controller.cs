@@ -45,8 +45,6 @@ public class SgkReportsV2Controller : ControllerBase
 
     /// <summary>
     /// Tarih ile rapor arama (METOT 2 - RaporAramaTarihile)
-    /// Rate limit: 24 saatte en fazla 2 sorgu
-    /// Her istekte yeni wsLogin token alınır
     /// </summary>
     [HttpPost("reports/search-by-date")]
     public async Task<IActionResult> SearchReportsByDate([FromBody] RaporAramaRequestDto request)
@@ -56,26 +54,10 @@ public class SgkReportsV2Controller : ControllerBase
 
         try
         {
-            // Rate limit kontrolü (ön kontrol)
-            var rateLimitCheck = await _sgkReportService.CheckRateLimitAsync(request.IsyeriKodu, "RaporAramaTarihile");
-            if (!rateLimitCheck.CanMakeRequest)
-            {
-                return StatusCode(429, new
-                {
-                    message = "Rate limit aşıldı",
-                    details = rateLimitCheck.Message,
-                    nextAvailableTime = rateLimitCheck.NextAvailableTime
-                });
-            }
-
             var result = await _sgkReportService.RaporAramaTarihileAsync(request);
 
             if (result.Success)
                 return Ok(result);
-
-            // Rate limit hatası mı kontrol et
-            if (result.Message.Contains("Rate limit") || result.Message.Contains("24 saat"))
-                return StatusCode(429, result);
 
             return BadRequest(result);
         }
@@ -165,7 +147,6 @@ public class SgkReportsV2Controller : ControllerBase
 
     /// <summary>
     /// Kapsamlı rapor sorgusu - Hem güncel hem 5 yıl öncesi raporları tek seferde getirir
-    /// Bu sizin ana ihtiyacınız için ideal endpoint
     /// </summary>
     [HttpPost("reports/comprehensive")]
     public async Task<IActionResult> GetComprehensiveReports([FromBody] ComprehensiveRequestDto request)
@@ -188,10 +169,6 @@ public class SgkReportsV2Controller : ControllerBase
             if (result.Success)
                 return Ok(result);
 
-            // Rate limit kontrolü
-            if (result.Data?.RateLimitAsildi == true)
-                return StatusCode(429, result);
-
             return BadRequest(result);
         }
         catch (Exception ex)
@@ -199,21 +176,6 @@ public class SgkReportsV2Controller : ControllerBase
             _logger.LogError(ex, "Comprehensive reports endpoint hatası");
             return StatusCode(500, new { message = "Sistem hatası", error = ex.Message });
         }
-    }
-
-    /// <summary>
-    /// Rate limit durumu kontrolü - İşyeri için kalan sorgu hakkı
-    /// </summary>
-    [HttpGet("rate-limit/{isyeriKodu}/{methodName}")]
-    public async Task<IActionResult> CheckRateLimit(
-        [FromRoute] string isyeriKodu,
-        [FromRoute] string methodName)
-    {
-        if (string.IsNullOrWhiteSpace(isyeriKodu) || string.IsNullOrWhiteSpace(methodName))
-            return BadRequest("İşyeri kodu ve metot adı gereklidir");
-
-        var result = await _sgkReportService.CheckRateLimitAsync(isyeriKodu, methodName);
-        return Ok(result);
     }
 
     /// <summary>
@@ -254,7 +216,7 @@ public class SgkReportsV2Controller : ControllerBase
 
                 if (result.Success) successCount++;
 
-                // Rate limiting için kısa bekleme
+                // Kısa bekleme
                 await Task.Delay(100);
             }
 

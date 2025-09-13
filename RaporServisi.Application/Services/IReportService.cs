@@ -4,7 +4,6 @@ namespace RaporServisi.Application.Services;
 
 /// <summary>
 /// Report Service Interface - English naming with Success/Error list patterns
-/// Notlardaki tüm gereksinimler: Success/Error lists, bulk operations, auto date calculations
 /// </summary>
 public interface IReportService
 {

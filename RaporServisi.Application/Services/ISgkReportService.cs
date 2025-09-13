@@ -15,7 +15,7 @@ public interface ISgkReportService
     /// <summary>
     /// Tarih ile rapor arama - Güncel rapor listesi (METOT 2)
     /// Dokümana göre: Poliklinik tarihi girilen tarihten küçük olan ilk 100 rapor
-    /// Rate limit: Aynı işveren için 24 saatte en fazla 2 sorgu
+    /// Rate limit kaldırıldı - Sınırsız sorgu yapılabilir
     /// </summary>
     /// <param name="request">Rapor arama parametreleri</param>
     /// <param name="ct">Cancellation token</param>
@@ -49,11 +49,11 @@ public interface ISgkReportService
     Task<ApiResponseDto<SgkOperationResultDto>> RaporOnayAsync(RaporOnayRequestDto request, CancellationToken ct = default);
 
     /// <summary>
-    /// Rate limiting kontrolü - İşveren için istek yapılabilir mi kontrol eder
+    /// Rate limiting kontrolü - Artık her zaman sınırsız döner (uyumluluk için bırakıldı)
     /// </summary>
     /// <param name="isyeriKodu">İşyeri kodu</param>
-    /// <param name="metodAdi">Hangi metot için kontrol (RaporAramaTarihile, HasIsKazSorguTarihle)</param>
-    /// <returns>Rate limit durumu</returns>
+    /// <param name="metodAdi">Hangi metot için kontrol</param>
+    /// <returns>Rate limit durumu (her zaman sınırsız)</returns>
     Task<RateLimitInfoDto> CheckRateLimitAsync(string isyeriKodu, string metodAdi);
 
     /// <summary>
@@ -69,12 +69,12 @@ public interface ISgkReportService
         CancellationToken ct = default);
 }
 
-// Comprehensive için ek DTO
+// Comprehensive için ek DTO (değişiklik yok)
 public class ComprehensiveReportDto : SgkBaseResponseDto
 {
     public RaporAramaResponseDto GuncelRaporlar { get; set; } = new();
     public OnayliRaporlarResponseDto GecmisRaporlar { get; set; } = new();
     public int ToplamIslem { get; set; }
     public List<string> Uyarilar { get; set; } = new();
-    public bool RateLimitAsildi { get; set; }
+    public bool RateLimitAsildi { get; set; } = false; 
 }

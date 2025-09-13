@@ -8,16 +8,13 @@ namespace RaporServisi.Infrastructure.Services;
 public class SgkReportService : ISgkReportService
 {
     private readonly ViziteGonderClient _soapClient;
-    private readonly SgkRateLimitingService _rateLimitingService;
     private readonly ILogger<SgkReportService> _logger;
 
     public SgkReportService(
         ViziteGonderClient soapClient,
-        SgkRateLimitingService rateLimitingService,
         ILogger<SgkReportService> logger)
     {
         _soapClient = soapClient;
-        _rateLimitingService = rateLimitingService;
         _logger = logger;
     }
 
@@ -68,18 +65,6 @@ public class SgkReportService : ISgkReportService
     {
         try
         {
-            // Rate limiting kontrolü
-            var rateLimitCheck = _rateLimitingService.CheckRateLimit(request.IsyeriKodu, "RaporAramaTarihile");
-            if (!rateLimitCheck.CanMakeRequest)
-            {
-                return new ApiResponseDto<RaporAramaResponseDto>
-                {
-                    Success = false,
-                    Message = rateLimitCheck.Message,
-                    Errors = new List<string> { "Rate limit aşıldı" }
-                };
-            }
-
             _logger.LogInformation("RaporAramaTarihile işlemi başlatılıyor - İşyeri: {IsyeriKodu}, Tarih: {Tarih}",
                 request.IsyeriKodu, request.Tarih);
 
@@ -100,7 +85,6 @@ public class SgkReportService : ISgkReportService
             // RaporAramaTarihile çağrısı
             var result = await _soapClient.raporAramaTarihileAsync(
                 request.KullaniciAdi, request.IsyeriKodu, token, request.Tarih);
-
             if (result?.raporAramaTarihileReturn?.sonucKod == 0)
             {
                 var raporlar = MapToRaporItemDtoList(result.raporAramaTarihileReturn.raporAramaTarihleBeanArray);
@@ -322,7 +306,12 @@ public class SgkReportService : ISgkReportService
 
     public async Task<RateLimitInfoDto> CheckRateLimitAsync(string isyeriKodu, string metodAdi)
     {
-        return await Task.FromResult(_rateLimitingService.CheckRateLimit(isyeriKodu, metodAdi));
+        return await Task.FromResult(new RateLimitInfoDto
+        {
+            CanMakeRequest = true,
+            RemainingRequests = int.MaxValue,
+            Message = "Rate limiting devre dışı - Sınırsız istek yapılabilir"
+        });
     }
 
     public async Task<ApiResponseDto<ComprehensiveReportDto>> GetComprehensiveReportsAsync(
@@ -341,19 +330,7 @@ public class SgkReportService : ISgkReportService
             }
             else
             {
-                comprehensiveResult.Success = false;
                 uyarilar.Add($"Güncel rapor sorgusu başarısız: {guncelResult.Message}");
-
-                if (guncelResult.Message.Contains("Rate limit"))
-                {
-                    comprehensiveResult.RateLimitAsildi = true;
-                    return new ApiResponseDto<ComprehensiveReportDto>
-                    {
-                        Success = false,
-                        Message = guncelResult.Message,
-                        Data = comprehensiveResult
-                    };
-                }
             }
 
             // 5 yıl öncesi onaylı raporları getir
@@ -379,10 +356,11 @@ public class SgkReportService : ISgkReportService
                 }
             }
 
+            comprehensiveResult.Success = true;
             comprehensiveResult.Uyarilar = uyarilar;
             comprehensiveResult.ToplamIslem = comprehensiveResult.GuncelRaporlar.ToplamRapor +
                                            comprehensiveResult.GecmisRaporlar.ToplamRapor;
-            comprehensiveResult.Success = comprehensiveResult.ToplamIslem > 0 || uyarilar.Count == 0;
+            comprehensiveResult.RateLimitAsildi = false; // Artık asılmayacak
 
             return new ApiResponseDto<ComprehensiveReportDto>
             {

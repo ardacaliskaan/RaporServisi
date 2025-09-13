@@ -1,6 +1,5 @@
 ﻿namespace RaporServisi.Application.DTOs;
 
-// Genel amaçlı DTOs
 public class ApiResponseDto<T>
 {
     public bool Success { get; set; }
@@ -26,7 +25,6 @@ public class RateLimitInfoDto
     public string Message { get; set; } = "";
 }
 
-// Dokümandaki parametrik alanlar için enum'lar
 public enum VakaKodu
 {
     IsKazasi = 1,

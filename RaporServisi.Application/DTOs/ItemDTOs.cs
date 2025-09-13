@@ -1,4 +1,6 @@
-﻿namespace RaporServisi.Application.DTOs;
+﻿using System;
+
+namespace RaporServisi.Application.DTOs;
 
 // Report Item DTO - RaporAramaTarihile için
 public class ReportItemDto
@@ -37,8 +39,8 @@ public class ReportItemDto
     public bool IsArchived => !string.IsNullOrEmpty(Archive);
 
     // Helper properties
-    public string CaseTypeDescription => GetCaseTypeDescription(CaseCode);
-    public string ReportStatusDescription => GetReportStatusDescription(ReportStatus);
+    public string CaseTypeDescription => CaseTypeHelper.GetDescription(CaseCode);
+    public string ReportStatusDescription => ReportStatusHelper.GetDescription(ReportStatus);
 }
 
 // Approved Report Item DTO - OnaylıRaporlarTarihile için
@@ -66,7 +68,7 @@ public class ApprovedReportItemDto
     public bool IsApproved => ApprovalDate.HasValue;
 
     // Helper properties
-    public string CaseTypeDescription => GetCaseTypeDescription(CaseCode);
+    public string CaseTypeDescription => CaseTypeHelper.GetDescription(CaseCode);
 }
 
 // Report Approval Item DTO - Toplu onay işlemleri için
@@ -90,7 +92,7 @@ public class ReportApprovalItemDto
         _ => "Unknown"
     };
 
-    public string CaseTypeDescription => GetCaseTypeDescription(CaseType);
+    public string CaseTypeDescription => CaseTypeHelper.GetDescription(CaseType);
 }
 
 // Report Detail DTO - Rapor detayları için

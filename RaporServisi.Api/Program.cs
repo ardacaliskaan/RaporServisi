@@ -32,7 +32,7 @@ builder.Services.AddScoped<ViziteGonderClient>(provider =>
 });
 
 // Application Services
-builder.Services.AddScoped<ISgkReportService, SgkReportService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 
 var app = builder.Build();
 

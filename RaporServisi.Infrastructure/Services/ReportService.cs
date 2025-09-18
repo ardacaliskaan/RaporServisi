@@ -475,6 +475,7 @@ public class ReportService : IReportService
                     });
                 }
 
+                // Kısa bekleme
                 await Task.Delay(100, ct);
             }
             catch (Exception ex)

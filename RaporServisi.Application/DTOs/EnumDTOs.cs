@@ -97,6 +97,7 @@ public enum SgkResultCode
     AgreementNotFoundInMosip = 1008
 }
 
+// Vaka Türleri
 public enum CaseType
 {
     WorkAccident = 1,

@@ -106,6 +106,7 @@ public class ReportDetailDto
     public DateTime? ProcessDate { get; set; }
     public string PaymentStatus { get; set; } = "";
 
+    // Detay alanlar
     public Dictionary<string, object> AdditionalData { get; set; } = new();
 }
 
